@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import type { Preset } from '../../../types/preset';
+import { toast } from 'sonner';
 import { Button } from '../../../components/ui/Button';
 import { FormGroup } from '../../../components/ui/FormGroup';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import type { CreatePresetInput } from '../../../types/preset';
+import { useCreatePreset } from '../api/create-preset';
 
 export const CreatePreset = () => {
-  const [formData, setFormData] = useState<Omit<Preset, '_id' | '_creationTime'>>({
+  const createPresetMutation = useCreatePreset();
+
+  const [formData, setFormData] = useState<CreatePresetInput>({
     name: '',
     width: 0,
     height: 0,
@@ -14,7 +18,10 @@ export const CreatePreset = () => {
     quality: 85,
   });
 
-  async function handleSubmit() {}
+  async function handleSubmit() {
+    await createPresetMutation.mutateAsync({ data: formData });
+    toast.success('Preset created successfully');
+  }
 
   return (
     <form onSubmit={handleSubmit} className="bg-gray-50 rounded-lg p-4 space-y-4">

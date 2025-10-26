@@ -1,11 +1,12 @@
 import { Anchor } from '../../../components/ui/Anchor';
 import { Button } from '../../../components/ui/Button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/Dialog';
+import { Spinner } from '../../../components/ui/Spinner';
 import { useCopyToClipboard } from '../../../hooks';
-import type { TransformationStatus } from '../../../types/transformation';
+import type { Asset, AssetStatus, Variant } from '../../../types/asset';
 import { cn } from '../../../utils/cn';
 import { formatFileSize } from '../../../utils/formatFileSize';
-import type { Asset } from '../../../types/asset';
+import { useAsset } from '../api/get-asset';
 
 type ViewAssetDialogProps = {
   assetId: string;
@@ -13,40 +14,78 @@ type ViewAssetDialogProps = {
 };
 
 export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
-  const [_, copyToClipboard] = useCopyToClipboard();
-  const assetData: Asset = {};
+  const [, copyToClipboard] = useCopyToClipboard();
+  const assetQuery = useAsset({ assetId });
 
-  function renderOriginalAsset() {
+  function renderOriginalAsset(asset: Asset) {
     return (
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">Original Asset</h3>
         <div className="bg-gray-50 rounded-lg p-4">
-          {assetData.url && (
+          {asset.url && (
             <img
-              src={assetData.url}
-              alt={assetData.name}
+              src={asset.url}
+              alt={asset.original_filename}
               className="w-full h-auto rounded-lg mb-4"
             />
           )}
 
           <div className="space-y-2 text-sm text-gray-600">
-            {assetData.width && assetData.height && (
-              <div>
-                Dimensions: {assetData.width} × {assetData.height}
-              </div>
-            )}
-            <div>Size: {formatFileSize(assetData.size)}</div>
-            <div>Type: {assetData.contentType}</div>
+            <span className={cn('px-2 py-1 text-xs rounded-full', assetStatusColor[asset.status])}>
+              {asset.status}
+            </span>
+            <div>Size: {formatFileSize(asset.size_bytes)}</div>
+            <div>Type: {asset.content_type}</div>
           </div>
 
-          {assetData.url && (
-            <Button onClick={() => copyToClipboard(assetData.url!)} className="mt-3">
+          {asset.status === 'failed' && asset.processing_error && (
+            <div className="text-sm text-red-600 mt-2">Error: {asset.processing_error}</div>
+          )}
+
+          {asset.original_s3_key && (
+            <Button onClick={() => copyToClipboard(asset.url!)} className="mt-3">
               Copy URL
             </Button>
           )}
         </div>
       </div>
     );
+  }
+
+  function renderVariants(variants: Variant[]) {
+    if (variants.length === 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          <p>No transformation presets available.</p>
+          <p className="text-sm mt-1">Create presets to generate transformed versions.</p>
+        </div>
+      );
+    }
+
+    return variants?.map(variant => (
+      <div key={variant.id} className="bg-gray-50 rounded-lg p-4">
+        <div className="flex justify-between items-start mb-2">
+          <h4 className="font-medium text-gray-900">{variant.name}</h4>
+        </div>
+
+        <div className="text-sm text-gray-600 mb-3">
+          {variant.width} × {variant.height} • {variant.format!.toUpperCase()}
+          {variant.quality && ` • ${variant.quality}% quality`}
+        </div>
+
+        {variant.url && (
+          <div className="flex space-x-2">
+            <Anchor
+              href={variant.url}
+              className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              View
+            </Anchor>
+            <Button onClick={() => copyToClipboard(variant.url!)}>Copy URL</Button>
+          </div>
+        )}
+      </div>
+    ));
   }
 
   return (
@@ -58,65 +97,16 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
 
         <div className="p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {renderOriginalAsset()}
+            {assetQuery.isLoading && <Spinner size="lg" />}
 
-            {/* Transformations */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Transformations</h3>
-              <div className="space-y-4">
-                {assetData?.transformations?.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No transformation presets available.</p>
-                    <p className="text-sm mt-1">Create presets to generate transformed versions.</p>
-                  </div>
-                ) : (
-                  assetData?.transformations?.map(transformation => (
-                    <div key={transformation._id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium text-gray-900">{transformation.preset?.name}</h4>
-                        <span
-                          className={cn(
-                            'px-2 py-1 text-xs rounded-full',
-                            transformationStatusColor[transformation.status]
-                          )}
-                        >
-                          {transformation.status}
-                        </span>
-                      </div>
+            {!assetQuery.isLoading && assetQuery.data && renderOriginalAsset(assetQuery.data)}
 
-                      {transformation.preset && (
-                        <div className="text-sm text-gray-600 mb-3">
-                          {transformation.preset.width} × {transformation.preset.height} •{' '}
-                          {transformation.preset.format.toUpperCase()}
-                          {transformation.preset.quality &&
-                            ` • ${transformation.preset.quality}% quality`}
-                        </div>
-                      )}
-
-                      {transformation.status === 'completed' && transformation.url && (
-                        <div className="flex space-x-2">
-                          <Anchor
-                            href={transformation.url}
-                            className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-                          >
-                            View
-                          </Anchor>
-                          <Button onClick={() => copyToClipboard(transformation.url!)}>
-                            Copy URL
-                          </Button>
-                        </div>
-                      )}
-
-                      {transformation.status === 'failed' && transformation.errorMessage && (
-                        <div className="text-sm text-red-600 mt-2">
-                          Error: {transformation.errorMessage}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
+            {!assetQuery.isLoading && assetQuery.data && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Variants</h3>
+                <div className="space-y-4">{renderVariants(assetQuery.data.variants)}</div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </DialogContent>
@@ -124,8 +114,9 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
   );
 };
 
-const transformationStatusColor: Record<TransformationStatus, string> = {
-  PROCESSING: 'bg-yellow-100 text-yellow-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  FAILED: 'bg-red-100 text-red-800',
+const assetStatusColor: Record<AssetStatus, string> = {
+  pending: 'bg-gray-100 text-gray-800',
+  processing: 'bg-yellow-100 text-yellow-800',
+  processed: 'bg-green-100 text-green-800',
+  failed: 'bg-red-100 text-red-800',
 };

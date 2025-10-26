@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { cn } from '../../utils/cn';
+import { toast } from 'sonner';
 
 interface FileUploadProps {
   onUpload: (files: File[]) => Promise<void>;
@@ -28,6 +29,7 @@ export function FileUpload({
       await onUpload(Array.from(files));
     } catch (error) {
       console.error('Upload process failed:', error);
+      toast.error('Upload process failed');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

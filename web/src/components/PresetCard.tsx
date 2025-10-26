@@ -17,7 +17,7 @@ export const PresetCard = ({ preset, onDelete }: PresetCardProps) => {
     }
 
     try {
-      await onDelete(preset._id);
+      await onDelete(preset.id);
     } catch (error) {
       console.error('Delete error:', error);
     }

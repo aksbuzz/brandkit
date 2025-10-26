@@ -1,20 +1,27 @@
 import { Image } from 'lucide-react';
 import { useState } from 'react';
 import { AssetCard } from '../../../components/AssetCard';
-import type { Asset } from '../../../types/asset';
 import { ViewAssetDialog } from './view';
+import { useAssets } from '../api/get-assets';
+import { Spinner } from '../../../components/ui/Spinner';
 
 export const ListAssets = () => {
-  const assets: Asset[] = [{
-    _id: "1",
-    name: 'Asset 1',
-    size: 12345,
-    url: null,
-    height: 100,
-    width: 100,
-    _creationTime: 0
-  }];
+  const assetsQuery = useAssets();
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  
+  if (assetsQuery.isLoading) {
+    return (
+      <div className="flex h-48 w-full items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  const assets = assetsQuery.data;
+
+  if (!assets) {
+    return null;
+  }
 
   if (assets.length === 0) {
     return (
@@ -36,9 +43,9 @@ export const ListAssets = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {assets.map(asset => (
             <AssetCard
-              key={asset._id}
+              key={asset.id}
               asset={asset}
-              onClick={() => setSelectedAssetId(asset._id)}
+              onClick={() => setSelectedAssetId(asset.id)}
             />
           ))}
         </div>

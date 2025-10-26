@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.916.0",
-    "@aws-sdk/client-sqs": "^3.916.0",
     "@aws-sdk/s3-request-presigner": "^3.916.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

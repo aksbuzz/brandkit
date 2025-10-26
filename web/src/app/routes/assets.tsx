@@ -1,6 +1,14 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { ListAssets } from '../../features/assets/components/list';
 import { UploadAssets } from '../../features/assets/components/upload';
 import { useDocumentTitle } from '../../hooks';
+import { getAssetsQueryOptions } from '../../features/assets/api/get-assets';
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const clientLoader = (queryClient: QueryClient) => () => async () => {
+  const query = getAssetsQueryOptions();
+  return queryClient.getQueryData(query.queryKey) ?? (await queryClient.fetchQuery(query));
+};
 
 const AssetsRoutes = () => {
   useDocumentTitle('BrandKit - Assets');

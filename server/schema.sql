@@ -13,7 +13,7 @@ CREATE TABLE presets (
 
 CREATE TABLE assets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  original_s3_key TEXT NOT NULL UNIQUE,
+  original_s3_key TEXT UNIQUE,
   original_filename TEXT NOT NULL,
   content_type TEXT,
   size_bytes BIGINT,

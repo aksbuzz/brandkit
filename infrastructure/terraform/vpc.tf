@@ -40,19 +40,25 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-
-resource "aws_subnet" "private" {
+resource "aws_subnet" "private_a" {
   vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
+  cidr_block        = "10.0.1.0/24"
   availability_zone = data.aws_availability_zones.available.names[0]
   tags = {
-    Name = "${var.project_name}-private-subnet"
+    Name = "${var.project_name}-private-subnet-a"
   }
 }
 
-resource "aws_eip" "nat" {
-  domain = "vpc"
+resource "aws_subnet" "private_b" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.3.0/24"
+  availability_zone = data.aws_availability_zones.available.names[1]
+  tags = {
+    Name = "${var.project_name}-private-subnet-b"
+  }
 }
+
+resource "aws_eip" "nat" {}
 
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat.id
@@ -74,7 +80,12 @@ resource "aws_route_table" "private" {
   }
 }
 
-resource "aws_route_table_association" "private" {
-  subnet_id      = aws_subnet.private.id
+resource "aws_route_table_association" "private_a" {
+  subnet_id      = aws_subnet.private_a.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "private_b" {
+  subnet_id      = aws_subnet.private_b.id
   route_table_id = aws_route_table.private.id
 }

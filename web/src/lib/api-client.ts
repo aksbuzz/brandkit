@@ -1,17 +1,18 @@
 import Axios from 'axios';
+import { toast } from 'sonner';
 
 export const api = Axios.create({
-  baseURL: 'http://localhost:4000/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL!,
 });
 
 api.interceptors.response.use(
   response => {
     return response.data;
-  }
-  // error => {
-  //   // const message = error?.response?.error || error?.message;
-  //   // show notif
+  },
+  error => {
+    const message = error?.message || 'Something went wrong!';
+    toast.error(message);
 
-  //   return Promise.reject(error);
-  // }
+    return Promise.reject(error);
+  }
 );

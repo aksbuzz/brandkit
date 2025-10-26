@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { config } from '../config';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -10,6 +10,12 @@ export const getUploadUrl = async (key: string, contentType: string): Promise<st
     Key: key,
     ContentType: contentType,
   });
+
+  return getSignedUrl(s3Client, command, { expiresIn: 3600 });
+};
+
+export const getDownloadUrl = async (key: string): Promise<string> => {
+  const command = new GetObjectCommand({ Bucket: config.aws.s3.bucket, Key: key });
 
   return getSignedUrl(s3Client, command, { expiresIn: 3600 });
 };

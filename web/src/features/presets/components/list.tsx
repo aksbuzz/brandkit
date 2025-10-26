@@ -1,12 +1,16 @@
 import { GalleryVerticalEnd } from 'lucide-react';
-import type { Preset } from '../../../types/preset';
+import { toast } from 'sonner';
 import { PresetCard } from '../../../components/PresetCard';
+import type { Preset } from '../../../types/preset';
+import { useDeletePreset } from '../api/delete-preset';
 
 type ListPresetsProps = {
   presets: Preset[];
 };
 
 export const ListPresets = ({ presets }: ListPresetsProps) => {
+  const deletePresetMutation = useDeletePreset();
+
   if (presets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border border-gray-200 p-12">
@@ -18,7 +22,8 @@ export const ListPresets = ({ presets }: ListPresetsProps) => {
   }
 
   async function handleDelete(presetId: string) {
-    console.log('Deleting preset:', presetId);
+    await deletePresetMutation.mutateAsync({ id: presetId });
+    toast.success('Preset deleted successfully');
   }
 
   return (
@@ -29,7 +34,7 @@ export const ListPresets = ({ presets }: ListPresetsProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {presets.map(preset => (
-          <PresetCard key={preset._id} preset={preset} onDelete={handleDelete} />
+          <PresetCard key={preset.id} preset={preset} onDelete={handleDelete} />
         ))}
       </div>
     </div>
