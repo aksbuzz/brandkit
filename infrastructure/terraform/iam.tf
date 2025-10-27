@@ -21,7 +21,7 @@ resource "aws_iam_policy" "ec2_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Action   = ["s3:PutObject"],
+        Action   = ["s3:PutObject", "s3:GetObject"],
         Effect   = "Allow",
         Resource = "${aws_s3_bucket.main.arn}/*"
       }

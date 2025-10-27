@@ -41,22 +41,25 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
         )}
       </div>
 
-      <div className="p-3">
+      <div className="p-3 flex flex-col">
+        <span
+          className={cn(
+            'px-2 self-end py-1 text-xs rounded-full capitalize',
+            assetStatusColor[asset.status]
+          )}
+        >
+          {asset.status}
+        </span>
+
         <h4 className="text-sm font-medium text-gray-900 truncate mb-1">
           {asset.original_filename}
         </h4>
+
         <div className="text-xs text-gray-500 space-y-1">
-          <span className={cn('px-2 py-1 text-xs rounded-full', assetStatusColor[asset.status])}>
-            {asset.status}
-          </span>
-          <div>{asset.content_type}</div>
-          <div>{formatFileSize(asset.size_bytes)}</div>
+          <div className="uppercase">{asset.content_type.split('/')[1]}</div>
+          {asset.size_bytes && <div>{formatFileSize(asset.size_bytes)}</div>}
         </div>
       </div>
-
-      {asset.status === 'failed' && asset.processing_error && (
-        <div className="text-sm text-red-600 mt-2">Error: {asset.processing_error}</div>
-      )}
 
       {/* <IconButton
         variant="danger"

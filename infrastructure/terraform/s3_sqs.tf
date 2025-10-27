@@ -22,6 +22,18 @@ resource "aws_sqs_queue" "main_queue" {
   )
 }
 
+resource "aws_s3_bucket_cors_configuration" "brandkit_cors" {
+  bucket = aws_s3_bucket.main.id
+
+  cors_rule {
+    allowed_origins = ["http://localhost", "http://localhost:5173", "http://localhost:3000"]
+    allowed_methods = ["PUT"]
+    allowed_headers = ["*"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
 resource "aws_s3_bucket_notification" "bucket_notification" {
   bucket = aws_s3_bucket.main.id
 

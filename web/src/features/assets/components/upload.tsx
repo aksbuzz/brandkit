@@ -1,11 +1,15 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { ImageUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/Button';
 import { FileUpload } from '../../../components/ui/FileUpload';
 import { useUploadFileToS3 } from '../../../hooks';
 import { useCreateAsset } from '../api/create-asset';
+import { getAssetsQueryOptions } from '../api/get-assets';
 
 export const UploadAssets = () => {
+  const queryClient = useQueryClient();
+
   const createAssetMutation = useCreateAsset();
   const uploadToS3 = useUploadFileToS3();
 
@@ -14,7 +18,7 @@ export const UploadAssets = () => {
       try {
         const { assetId, signedUrl } = await createAssetMutation.mutateAsync({
           data: {
-            fileName: file.name,
+            filename: file.name,
             contentType: file.type,
             fileSizeBytes: file.size,
           },
@@ -38,6 +42,8 @@ export const UploadAssets = () => {
         `${successfulUploads} file${successfulUploads > 1 ? 's' : ''} uploaded successfully`
       );
     }
+
+    await queryClient.refetchQueries({ queryKey: getAssetsQueryOptions().queryKey });
   }
 
   return (

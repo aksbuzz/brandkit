@@ -21,7 +21,7 @@ export interface Asset {
 }
 
 export type CreateAssetInput = {
-  fileName: string;
+  filename: string;
   fileSizeBytes: number;
   contentType: string;
 };

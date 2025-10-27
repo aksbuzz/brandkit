@@ -30,8 +30,8 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
             />
           )}
 
-          <div className="space-y-2 text-sm text-gray-600">
-            <span className={cn('px-2 py-1 text-xs rounded-full', assetStatusColor[asset.status])}>
+          <div className="flex flex-col space-y-2 text-sm text-gray-600">
+            <span className={cn('px-2 self-end py-1 text-xs rounded-full capitalize', assetStatusColor[asset.status])}>
               {asset.status}
             </span>
             <div>Size: {formatFileSize(asset.size_bytes)}</div>
@@ -92,7 +92,7 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
     <Dialog open={!!assetId} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{'assetData.name'}</DialogTitle>
+          <DialogTitle>{assetQuery.data?.original_filename || 'Untitled Asset'}</DialogTitle>
         </DialogHeader>
 
         <div className="p-6">

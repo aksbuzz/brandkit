@@ -29,5 +29,8 @@ Content-Type: application/json
   "contentType": "image/jpeg"
 }
 
+### Get Assets
+GET http://ec2-3-111-171-0.ap-south-1.compute.amazonaws.com:8080/api/v1/assets HTTP/1.1
+
 ### Get Asset
 GET http://ec2-3-111-171-0.ap-south-1.compute.amazonaws.com:8080/api/v1/assets/b03e6f45-ced3-4da8-88b2-af83c5090227 HTTP/1.1

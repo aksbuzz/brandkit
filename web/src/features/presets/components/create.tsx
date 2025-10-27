@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/Button';
 import { FormGroup } from '../../../components/ui/FormGroup';
@@ -7,20 +7,24 @@ import { Select } from '../../../components/ui/Select';
 import type { CreatePresetInput } from '../../../types/preset';
 import { useCreatePreset } from '../api/create-preset';
 
+const defaultFormData = {
+  name: '',
+  width: 0,
+  height: 0,
+  format: 'webp' as 'jpeg' | 'png' | 'webp',
+  quality: 85,
+};
+
 export const CreatePreset = () => {
   const createPresetMutation = useCreatePreset();
 
-  const [formData, setFormData] = useState<CreatePresetInput>({
-    name: '',
-    width: 0,
-    height: 0,
-    format: 'webp' as 'jpeg' | 'png' | 'webp',
-    quality: 85,
-  });
+  const [formData, setFormData] = useState<CreatePresetInput>(defaultFormData);
 
-  async function handleSubmit() {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     await createPresetMutation.mutateAsync({ data: formData });
     toast.success('Preset created successfully');
+    setFormData(defaultFormData);
   }
 
   return (
@@ -88,7 +92,7 @@ export const CreatePreset = () => {
       </div>
 
       <div className="flex justify-end">
-        <Button type="submit" variant="primary">
+        <Button type="submit" variant="primary" isWorking={createPresetMutation.isPending}>
           Create Preset
         </Button>
       </div>
