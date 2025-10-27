@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
+import { config } from '../../config';
 import { db } from '../../config/database';
-import { getDownloadUrl, getUploadUrl } from '../../services/s3.service';
+import { getUploadUrl } from '../../services/s3.service';
 import { CreateAssetInput } from './schema';
 // import { sendDeleteMessage } from '../../services/sqs.service';
 
@@ -39,12 +40,12 @@ export const getAssetsHandler = async (req: Request, res: Response, next: NextFu
   try {
     const assets = await db.any('SELECT * FROM assets');
 
-    const assetsWithUrls = await Promise.all(
-      assets.map(async asset => ({
-        ...asset,
-        url: await getDownloadUrl(asset.original_s3_key),
-      }))
-    );
+    const cdnBaseUrl = `https://${config.aws.cloudfront.domainName}`;
+
+    const assetsWithUrls = assets.map(asset => ({
+      ...asset,
+      url: `${cdnBaseUrl}/${asset.original_s3_key}`,
+    }));
 
     res.status(200).json(assetsWithUrls);
   } catch (error) {
@@ -66,17 +67,14 @@ export const getAssetHandler = async (req: Request, res: Response, next: NextFun
       assetId
     );
 
-    const assetWithUrl = {
-      ...asset,
-      url: await getDownloadUrl(asset.original_s3_key),
-    };
+    const cdnBaseUrl = `https://${config.aws.cloudfront.domainName}`;
 
-    const variantsWithUrls = await Promise.all(
-      variants.map(async variant => ({
-        ...variant,
-        url: await getDownloadUrl(variant.s3_key),
-      }))
-    );
+    const assetWithUrl = { ...asset, url: `${cdnBaseUrl}/${asset.original_s3_key}` };
+
+    const variantsWithUrls = variants.map(variant => ({
+      ...variant,
+      url: `${cdnBaseUrl}/${variant.s3_key}`,
+    }));
 
     res.status(200).json({ ...assetWithUrl, variants: variantsWithUrls });
   } catch (error) {

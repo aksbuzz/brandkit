@@ -30,5 +30,8 @@ export const config = {
     sqs: {
       deleteQueueUrl: getEnv('AWS_SQS_DELETE_QUEUE_URL'),
     },
+    cloudfront: {
+      domainName: getEnv('AWS_CLOUDFRONT_DOMAIN_NAME'),
+    }
   },
 };

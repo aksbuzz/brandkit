@@ -35,6 +35,7 @@ DB_PORT=5432
 PORT=8080
 AWS_REGION=ap-south-1
 AWS_S3_BUCKET_NAME=brandkit-assets-61a19fdacbf7
+AWS_CLOUDFRONT_DOMAIN_NAME=${aws_cloudfront_distribution.s3_distribution.domain_name}
 EOL
 
 echo ".env file created successfully."
