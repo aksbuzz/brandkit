@@ -31,7 +31,12 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
           )}
 
           <div className="flex flex-col space-y-2 text-sm text-gray-600">
-            <span className={cn('px-2 self-end py-1 text-xs rounded-full capitalize', assetStatusColor[asset.status])}>
+            <span
+              className={cn(
+                'px-2 self-end py-1 text-xs rounded-full capitalize',
+                assetStatusColor[asset.status]
+              )}
+            >
               {asset.status}
             </span>
             <div>Size: {formatFileSize(asset.size_bytes)}</div>
@@ -91,14 +96,19 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
   return (
     <Dialog open={!!assetId} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>{assetQuery.data?.original_filename || 'Untitled Asset'}</DialogTitle>
-        </DialogHeader>
+        {!assetQuery.isLoading && assetQuery.data && (
+          <DialogHeader>
+            <DialogTitle>{assetQuery.data.original_filename || 'Untitled Asset'}</DialogTitle>
+          </DialogHeader>
+        )}
 
         <div className="p-6">
+          {assetQuery.isLoading && (
+            <div className="flex items-center justify-center">
+              <Spinner size="lg" />
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {assetQuery.isLoading && <Spinner size="lg" />}
-
             {!assetQuery.isLoading && assetQuery.data && renderOriginalAsset(assetQuery.data)}
 
             {!assetQuery.isLoading && assetQuery.data && (

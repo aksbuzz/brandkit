@@ -11,7 +11,7 @@ resource "aws_lambda_function" "worker" {
   role          = aws_iam_role.lambda_role.arn
   layers = [
     # Upload zip file in console - https://github.com/cbschuld/sharp-aws-lambda-layer/releases
-    "arn:aws:lambda:ap-south-1:623102672468:layer:Sharp:1"
+    var.lambda_layer_arn
   ]
 
   filename         = data.archive_file.lambda_zip.output_path

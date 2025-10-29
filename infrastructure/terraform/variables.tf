@@ -26,3 +26,11 @@ variable "db_password" {
   type      = string
   sensitive = true
 }
+
+variable "lambda_layer_arn" {
+  type = string
+}
+
+variable "ec2_key_name" {
+  type = string
+}
