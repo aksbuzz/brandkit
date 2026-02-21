@@ -12,9 +12,9 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     origin_access_control_id = aws_cloudfront_origin_access_control.main.id
   }
 
-  enabled             = true
-  is_ipv6_enabled     = true
-  default_root_object = "index.html"
+  enabled         = true
+  is_ipv6_enabled = true
+  # No default_root_object — this distribution serves image assets, not a SPA
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]

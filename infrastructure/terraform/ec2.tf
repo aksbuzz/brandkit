@@ -16,7 +16,7 @@ resource "aws_instance" "api_server" {
               #!/bin/bash
               # Update and install dependencies
               dnf update -y
-              dnf install -y nodejs git
+              dnf install -y nodejs20 git
               
               # Clone the repository
               cd /home/ec2-user
@@ -39,7 +39,9 @@ resource "aws_instance" "api_server" {
               echo "PORT=8080" >> .env
               echo "AWS_REGION=${var.aws_region}" >> .env
               echo "AWS_S3_BUCKET_NAME=${aws_s3_bucket.main.bucket}" >> .env
-              echo "AWS_CLOUDFRONT_DOMAIN_NAME=${aws_cloudfront_distribution.main.domain_name}" >> .env
+              echo "AWS_CLOUDFRONT_DOMAIN_NAME=${aws_cloudfront_distribution.s3_distribution.domain_name}" >> .env
+              echo "API_KEY=${var.api_key}" >> .env
+              echo "DB_SSL=true" >> .env
               
               # Build the project
               npm run build

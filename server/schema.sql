@@ -37,3 +37,20 @@ CREATE TABLE variants (
 
 CREATE INDEX idx_variants_asset_id ON variants(asset_id);
 CREATE INDEX idx_assets_status ON assets(status);
+
+-- Automatically keep updated_at current on any row modification
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_presets_updated_at
+  BEFORE UPDATE ON presets
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_assets_updated_at
+  BEFORE UPDATE ON assets
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();

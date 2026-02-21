@@ -6,6 +6,7 @@ resource "aws_db_subnet_group" "main" {
     Name = "${var.project_name}-db-subnet-group"
   }
 }
+
 resource "aws_db_instance" "main" {
   identifier             = "${var.project_name}-db"
   allocated_storage      = 20
@@ -19,5 +20,6 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
   publicly_accessible    = false
   multi_az               = false
-  skip_final_snapshot    = true
+  skip_final_snapshot    = var.skip_final_snapshot
+  deletion_protection    = !var.skip_final_snapshot
 }

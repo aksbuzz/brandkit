@@ -12,11 +12,11 @@ resource "aws_security_group" "ec2_sg" {
   }
 
   ingress {
-    description = "Allow SSH from anywhere (for maintenance)"
+    description = "Allow SSH from trusted CIDR only"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.ssh_allowed_cidr]
   }
 
   egress {

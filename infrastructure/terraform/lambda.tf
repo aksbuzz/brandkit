@@ -33,7 +33,7 @@ resource "aws_lambda_function" "worker" {
       DB_USER     = var.db_username
       DB_PASSWORD = var.db_password
       DB_NAME     = var.db_name
-      DB_SSL      = true
+      DB_SSL      = "true"
     }
   }
 }
@@ -42,4 +42,8 @@ resource "aws_lambda_event_source_mapping" "worker_sqs_mapping" {
   event_source_arn = aws_sqs_queue.main_queue.arn
   function_name    = aws_lambda_function.worker.arn
   batch_size       = 5
+
+  # Enable per-record failure reporting so a single bad message
+  # doesn't cause the entire batch to be retried
+  function_response_types = ["ReportBatchItemFailures"]
 }

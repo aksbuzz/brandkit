@@ -11,8 +11,10 @@ resource "aws_sqs_queue" "main_dlq" {
 }
 
 resource "aws_sqs_queue" "main_queue" {
-  name                       = "${var.project_name}-main-queue"
-  visibility_timeout_seconds = 300
+  name = "${var.project_name}-main-queue"
+
+  # Must be >= 6x the Lambda timeout (300s) per AWS recommendation
+  visibility_timeout_seconds = 1800
 
   redrive_policy = jsonencode(
     {
@@ -48,7 +50,7 @@ resource "aws_s3_bucket_cors_configuration" "brandkit_cors" {
   bucket = aws_s3_bucket.main.id
 
   cors_rule {
-    allowed_origins = ["http://localhost", "http://localhost:5173", "http://localhost:3000"]
+    allowed_origins = var.allowed_upload_origins
     allowed_methods = ["PUT"]
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]

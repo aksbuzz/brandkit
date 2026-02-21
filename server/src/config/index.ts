@@ -13,6 +13,10 @@ const getEnv = (key: string): string => {
 export const config = {
   app: {
     port: parseInt(getEnv('PORT'), 10),
+    apiKey: getEnv('API_KEY'),
+    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173,http://localhost')
+      .split(',')
+      .map(o => o.trim()),
   },
   db: {
     host: getEnv('DB_HOST'),
@@ -27,11 +31,8 @@ export const config = {
     s3: {
       bucket: getEnv('AWS_S3_BUCKET_NAME'),
     },
-    sqs: {
-      deleteQueueUrl: getEnv('AWS_SQS_DELETE_QUEUE_URL'),
-    },
     cloudfront: {
       domainName: getEnv('AWS_CLOUDFRONT_DOMAIN_NAME'),
-    }
+    },
   },
 };
