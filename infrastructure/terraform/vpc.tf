@@ -58,23 +58,11 @@ resource "aws_subnet" "private_b" {
   }
 }
 
-resource "aws_eip" "nat" {}
-
-resource "aws_nat_gateway" "nat" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public.id
-  depends_on    = [aws_internet_gateway.gw]
-  tags = {
-    Name = "${var.project_name}-nat-gw"
-  }
-}
-
+# The private subnets have no route to the internet. The only thing the worker needs outside the VPC
+# is S3, which it reaches through the gateway endpoint below (free, unlike a NAT gateway).
+# SQS polling and CloudWatch Logs delivery are performed by the Lambda service, not from the VPC.
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat.id
-  }
   tags = {
     Name = "${var.project_name}-private-rt"
   }
@@ -88,4 +76,14 @@ resource "aws_route_table_association" "private_a" {
 resource "aws_route_table_association" "private_b" {
   subnet_id      = aws_subnet.private_b.id
   route_table_id = aws_route_table.private.id
+}
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [aws_route_table.private.id]
+  tags = {
+    Name = "${var.project_name}-s3-endpoint"
+  }
 }

@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. Never commit real values.
+
+# --- Database ---
+db_username = "brandkit_admin"
+# 12+ characters; letters, digits and ! % ^ & * ( ) _ + = . , : ; ? ~ - only
+db_password = "CHANGE-ME-to-a-long-random-value"
+
+# --- API ---
+# 24+ characters; letters, digits and _ . ~ - only. Generate one with: openssl rand -hex 24
+api_key = "CHANGE-ME-generate-with-openssl-rand-hex-24"
+
+# --- Worker ---
+# ARN of the Lambda layer providing sharp (nodejs22.x, x86_64); see the README
+lambda_layer_arn = "arn:aws:lambda:ap-south-1:123456789012:layer:sharp:1"
+
+# --- Optional ---
+# Where the web app runs, for CORS on the API and on direct S3 uploads
+# allowed_api_origins    = ["https://app.example.com"]
+# allowed_upload_origins = ["https://app.example.com"]
+
+# SSH is off unless both are set; prefer `aws ssm start-session` (no inbound port needed)
+# ec2_key_name     = "my-key-pair"
+# ssh_allowed_cidr = "203.0.113.7/32"
+
+# Pin what the server boots from (branch, tag or commit SHA)
+# app_git_ref = "v1.0.0"
+
+# Email for CloudWatch alarms (confirm the subscription email AWS sends)
+# alarm_email = "ops@example.com"
+
+# Throwaway environments only: lets `terraform destroy` delete the database immediately
+# skip_final_snapshot = true

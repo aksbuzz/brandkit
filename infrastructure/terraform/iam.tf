@@ -15,15 +15,16 @@ resource "aws_iam_role" "ec2_role" {
   )
 }
 
+# The API only signs upload forms for new originals; it never reads objects (reads go through CloudFront).
 resource "aws_iam_policy" "ec2_policy" {
   name = "${var.project_name}-ec2-policy"
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Action   = ["s3:PutObject", "s3:GetObject"],
+        Action   = ["s3:PutObject"],
         Effect   = "Allow",
-        Resource = "${aws_s3_bucket.main.arn}/*"
+        Resource = "${aws_s3_bucket.main.arn}/originals/*"
       }
     ]
   })
@@ -32,6 +33,12 @@ resource "aws_iam_policy" "ec2_policy" {
 resource "aws_iam_role_policy_attachment" "ec2_policy_attach" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = aws_iam_policy.ec2_policy.arn
+}
+
+# Lets operators open a shell with SSM Session Manager instead of exposing SSH
+resource "aws_iam_role_policy_attachment" "ec2_ssm" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "ec2_profile" {
@@ -64,11 +71,29 @@ resource "aws_iam_policy" "lambda_policy" {
       Version = "2012-10-17",
       Statement = [
         {
-          Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+          Sid      = "ReadOriginals",
+          Action   = ["s3:GetObject"],
           Effect   = "Allow",
-          Resource = "${aws_s3_bucket.main.arn}/*"
+          Resource = "${aws_s3_bucket.main.arn}/originals/*"
         },
         {
+          Sid      = "WriteVariants",
+          Action   = ["s3:PutObject"],
+          Effect   = "Allow",
+          Resource = "${aws_s3_bucket.main.arn}/derived/*"
+        },
+        {
+          # Used by the cleanup worker once it is deployed (see docs/adr/0012)
+          Sid    = "DeleteObjects",
+          Action = ["s3:DeleteObject"],
+          Effect = "Allow",
+          Resource = [
+            "${aws_s3_bucket.main.arn}/originals/*",
+            "${aws_s3_bucket.main.arn}/derived/*"
+          ]
+        },
+        {
+          Sid      = "ConsumeQueue",
           Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
           Effect   = "Allow",
           Resource = aws_sqs_queue.main_queue.arn
