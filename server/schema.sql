@@ -3,9 +3,9 @@ CREATE TYPE asset_status AS ENUM ('pending', 'processing', 'processed', 'failed'
 CREATE TABLE presets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
-  width INTEGER NOT NULL,
-  height INTEGER NOT NULL,
-  format TEXT NOT NULL DEFAULT 'jpeg', -- e.g., 'jpeg', 'webp', 'png'
+  width INTEGER NOT NULL CHECK (width > 0),
+  height INTEGER NOT NULL CHECK (height > 0),
+  format TEXT NOT NULL DEFAULT 'jpeg' CHECK (format IN ('jpeg', 'webp', 'png')),
   quality INTEGER NOT NULL DEFAULT 80 CHECK (quality > 0 AND quality <= 100),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -32,7 +32,9 @@ CREATE TABLE variants (
   height INTEGER NOT NULL,
   content_type TEXT NOT NULL,
   size_bytes BIGINT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- one variant per preset per asset; lets the worker upsert so re-processing is idempotent
+  CONSTRAINT variants_asset_preset_key UNIQUE (asset_id, preset_id)
 );
 
 CREATE INDEX idx_variants_asset_id ON variants(asset_id);
