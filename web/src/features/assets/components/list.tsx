@@ -1,14 +1,15 @@
 import { Image } from 'lucide-react';
 import { useState } from 'react';
 import { AssetCard } from '../../../components/AssetCard';
-import { ViewAssetDialog } from './view';
-import { useAssets } from '../api/get-assets';
+import { Button } from '../../../components/ui/Button';
 import { Spinner } from '../../../components/ui/Spinner';
+import { useAssets } from '../api/get-assets';
+import { ViewAssetDialog } from './view';
 
 export const ListAssets = () => {
   const assetsQuery = useAssets();
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
-  
+
   if (assetsQuery.isLoading) {
     return (
       <div className="flex h-48 w-full items-center justify-center">
@@ -17,11 +18,12 @@ export const ListAssets = () => {
     );
   }
 
-  const assets = assetsQuery.data;
-
-  if (!assets) {
+  if (!assetsQuery.data) {
     return null;
   }
+
+  const assets = assetsQuery.data.pages.flatMap(page => page.items);
+  const total = assetsQuery.data.pages[0]?.total ?? assets.length;
 
   if (assets.length === 0) {
     return (
@@ -38,6 +40,9 @@ export const ListAssets = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Asset Gallery</h3>
+          <span className="text-sm text-gray-500">
+            Showing {assets.length} of {total}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -49,6 +54,18 @@ export const ListAssets = () => {
             />
           ))}
         </div>
+
+        {assetsQuery.hasNextPage && (
+          <div className="flex justify-center mt-6">
+            <Button
+              variant="secondary"
+              isWorking={assetsQuery.isFetchingNextPage}
+              onClick={() => assetsQuery.fetchNextPage()}
+            >
+              Load more
+            </Button>
+          </div>
+        )}
       </div>
 
       {selectedAssetId && (

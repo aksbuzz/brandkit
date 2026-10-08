@@ -7,7 +7,7 @@ import { getAssetsQueryOptions } from '../../features/assets/api/get-assets';
 // eslint-disable-next-line react-refresh/only-export-components
 export const clientLoader = (queryClient: QueryClient) => () => async () => {
   const query = getAssetsQueryOptions();
-  return queryClient.getQueryData(query.queryKey) ?? (await queryClient.fetchQuery(query));
+  return queryClient.getQueryData(query.queryKey) ?? (await queryClient.fetchInfiniteQuery(query));
 };
 
 const AssetsRoutes = () => {

@@ -17,11 +17,11 @@ export const clientLoader = (queryClient: QueryClient) => () => async () => {
 };
 
 const commonPresets: CreatePresetInput[] = [
-  { name: 'Twitter Post', width: 1024, height: 512, format: 'webp' as const },
-  { name: 'Instagram Square', width: 1080, height: 1080, format: 'webp' as const },
-  { name: 'Facebook Cover', width: 1200, height: 630, format: 'webp' as const },
-  { name: 'LinkedIn Banner', width: 1584, height: 396, format: 'webp' as const },
-  { name: 'Web Thumbnail', width: 400, height: 300, format: 'webp' as const },
+  { name: 'Twitter Post', width: 1024, height: 512, format: 'webp' as const, quality: 80 },
+  { name: 'Instagram Square', width: 1080, height: 1080, format: 'webp' as const, quality: 80 },
+  { name: 'Facebook Cover', width: 1200, height: 630, format: 'webp' as const, quality: 80 },
+  { name: 'LinkedIn Banner', width: 1584, height: 396, format: 'webp' as const, quality: 80 },
+  { name: 'Web Thumbnail', width: 400, height: 300, format: 'webp' as const, quality: 80 },
 ];
 
 const PresetsRoutes = () => {
@@ -33,8 +33,12 @@ const PresetsRoutes = () => {
   const [showForm, setShowForm] = useState<boolean>(false);
 
   async function addCommonPreset(preset: CreatePresetInput) {
-    await createPresetMutation.mutateAsync({ data: preset });
-    toast.success('Preset created successfully');
+    try {
+      await createPresetMutation.mutateAsync({ data: preset });
+      toast.success('Preset created successfully');
+    } catch {
+      // the api client already showed the server's error message
+    }
   }
 
   if (presetsQuery.isLoading) {
