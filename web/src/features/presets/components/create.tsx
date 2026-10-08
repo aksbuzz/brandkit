@@ -22,9 +22,13 @@ export const CreatePreset = () => {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    await createPresetMutation.mutateAsync({ data: formData });
-    toast.success('Preset created successfully');
-    setFormData(defaultFormData);
+    try {
+      await createPresetMutation.mutateAsync({ data: formData });
+      toast.success('Preset created successfully');
+      setFormData(defaultFormData);
+    } catch {
+      // the api client already showed the server's error message; keep the form so it can be corrected
+    }
   }
 
   return (

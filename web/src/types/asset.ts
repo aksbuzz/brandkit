@@ -3,21 +3,37 @@ export const ASSET_STATUS = {
   PROCESSING: 'processing',
   PROCESSED: 'processed',
   FAILED: 'failed',
+  DELETING: 'deleting',
 } as const;
 
 export type AssetStatus = (typeof ASSET_STATUS)[keyof typeof ASSET_STATUS];
 
-export interface Asset {
+/** An asset as returned by the list endpoint. */
+export interface AssetSummary {
   id: string;
-  original_s3_key: string;
   original_filename: string;
   content_type: string;
-  size_bytes: number;
+  size_bytes: number | null;
   status: AssetStatus;
+  created_at: string;
+  updated_at: string;
+  /** CDN URL of the original file */
+  url: string | null;
+  /** CDN URL of the smallest generated variant, once processing has produced one */
+  thumbnail_url: string | null;
+}
+
+export type AssetPage = {
+  items: AssetSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+/** An asset as returned by the detail endpoint. */
+export interface Asset extends Omit<AssetSummary, 'thumbnail_url'> {
+  original_s3_key: string | null;
   processing_error: string | null;
-  created_at: Date;
-  updated_at: Date;
-  url: string;
 }
 
 export type CreateAssetInput = {
@@ -26,9 +42,15 @@ export type CreateAssetInput = {
   contentType: string;
 };
 
+/** Presigned S3 POST: send `fields` as form fields, then the file as the last field. */
+export type PresignedUpload = {
+  url: string;
+  fields: Record<string, string>;
+};
+
 export type CreateAssetResponse = {
   assetId: string;
-  signedUrl: string;
+  upload: PresignedUpload;
 };
 
 export interface Variant {
@@ -40,7 +62,7 @@ export interface Variant {
   height: number;
   content_type: string;
   size_bytes: number;
-  created_at: Date;
+  created_at: string;
   url: string;
 
   name?: string;

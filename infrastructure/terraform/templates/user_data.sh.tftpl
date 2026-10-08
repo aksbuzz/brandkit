@@ -1,0 +1,78 @@
+#!/bin/bash
+# First-boot provisioning for the BrandKit API (rendered by Terraform's templatefile()).
+# Any failing command aborts the script, so a broken build can never leave a half-started service.
+set -euxo pipefail
+
+dnf install -y nodejs20 git
+
+# The service runs as an unprivileged user, never as root
+id brandkit >/dev/null 2>&1 || useradd --system --create-home --home-dir /opt/brandkit --shell /sbin/nologin brandkit
+
+APP_DIR=/opt/brandkit/app
+if [ ! -d "$APP_DIR/.git" ]; then
+  sudo -H -u brandkit git clone ${repo_url} "$APP_DIR"
+fi
+cd "$APP_DIR"
+sudo -H -u brandkit git fetch --all --tags
+sudo -H -u brandkit git checkout ${git_ref}
+
+# Configuration, readable only by the service user
+cat > "$APP_DIR/server/.env" <<'ENV'
+PORT=8080
+TRUST_PROXY=1
+AWS_REGION=${aws_region}
+AWS_S3_BUCKET_NAME=${bucket}
+AWS_CLOUDFRONT_DOMAIN_NAME=${cloudfront_domain}
+ALLOWED_ORIGINS=${allowed_origins}
+MAX_UPLOAD_BYTES=${max_upload_bytes}
+API_KEY=${api_key}
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_USER=${db_user}
+DB_PASSWORD=${db_password}
+DB_DATABASE=${db_name}
+DB_SSL=true
+DB_SSL_CA_PATH=/opt/brandkit/app/infrastructure/certs/rds-global-bundle.pem
+ENV
+chown brandkit:brandkit "$APP_DIR/server/.env"
+chmod 600 "$APP_DIR/server/.env"
+
+cd "$APP_DIR/server"
+sudo -H -u brandkit npm ci
+sudo -H -u brandkit npm run build
+sudo -H -u brandkit npm prune --omit=dev
+
+cat > /etc/systemd/system/brandkit-api.service <<'UNIT'
+[Unit]
+Description=BrandKit API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=brandkit
+Group=brandkit
+WorkingDirectory=/opt/brandkit/app/server
+ExecStart=/usr/bin/env node dist/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now brandkit-api
+
+# Fail the boot script (visible in /var/log/cloud-init-output.log) if the API does not come up
+for i in $(seq 1 30); do
+  if curl -fsS http://127.0.0.1:8080/health; then
+    exit 0
+  fi
+  sleep 2
+done
+journalctl -u brandkit-api --no-pager | tail -50
+exit 1

@@ -1,161 +1,179 @@
 # BrandKit
 
 #### Digital Asset Management System
-A system for uploading, processing, and delivering images at scale. 
+A system for uploading, processing, and delivering images at scale.
 
 This application lets users upload images, automatically creates different sizes of those images, and serves them fast to users anywhere in the world.
- 
+
 ![Arch](./Arch.png)
+
+Architecture decisions are recorded in [docs/adr](docs/adr/README.md). A review of the code against those decisions is in [docs/audit](docs/audit/2026-10-07-code-audit.md).
+
+## Repository layout
+
+| Path | What it is |
+| --- | --- |
+| `server/` | Express API (TypeScript) and `schema.sql` |
+| `lambdas/image-processor/` | Worker that creates image variants (SQS -> Lambda) |
+| `lambdas/cleanup/` | Asset deletion worker (written, not deployed yet, see ADR 0012) |
+| `web/` | React app (Vite) |
+| `infrastructure/terraform/` | All AWS resources |
+| `infrastructure/certs/` | Amazon RDS CA bundle used to verify database TLS |
+| `docs/` | ADRs and audit |
 
 ## Main Parts
 
 ### API Server (EC2)
-A Node.js/Express application running on an EC2 instance. It handles all synchronous API requests, manages metadata, and orchestrates the upload and deletion processes.
+A Node.js/Express application on an EC2 instance, run as an unprivileged systemd service. It handles synchronous API requests, manages metadata and signs direct-to-S3 upload forms. It is only reachable through CloudFront (`/api/*`) over HTTPS.
 
 ### Database (RDS PostgreSQL)
-The central source of truth for all asset metadata, user-defined presets, and variant information. It uses relational features like transactions and cascading deletes for data integrity.
+The source of truth for asset metadata, user-defined presets and variant information. Uses transactions, cascading deletes and uniqueness constraints for integrity.
 
 ### Storage (Amazon S3)
-Private storage for all images. Has two folders:
-- `originals/` - Original uploaded images
-- `derived/` - Processed images in different sizes
+Private, encrypted storage for all images. Two prefixes:
+- `originals/` - uploaded images (`originals/{assetId}/original.{ext}`)
+- `derived/` - generated variants (`derived/{presetId}/{assetId}.{ext}`)
 
 ### Processing Worker (Lambda + SQS)
-When a new image is uploaded, this worker automatically:
-- Downloads the original image
-- Creates different sizes using sharp library
-- Saves all versions back to storage
-- Updates database with new information
+When a new image is uploaded, the worker:
+- Downloads the original and checks its size and that it is a valid image
+- Creates one variant per preset with `sharp` (auto-rotated from EXIF)
+- Saves the variants back to storage with long-lived cache headers
+- Records the variants and marks the asset `processed`
+
+Processing is idempotent: duplicate or retried messages never turn a finished asset into a failed one. Images that cannot be processed are marked `failed` with a reason; unexpected errors are retried and finally land in a dead-letter queue (with an alarm).
 
 ### Content Delivery (CloudFront)
-A CloudFront CDN sits in front of the S3 bucket, providing fast, low-latency, and cached delivery of images to users worldwide. It accesses the private S3 bucket.
+One CloudFront distribution serves both images (`/*`, cached, from the private bucket via Origin Access Control) and the API (`/api/*`, never cached).
 
-### Network Security (VPC)
-All core compute and database resources (EC2, RDS, Lambdas) are located within a Virtual Private Cloud (VPC) for network isolation and security.
+### Network (VPC)
+The API host is in a public subnet. RDS and the Lambda are in private subnets with no internet route; the Lambda reaches S3 through a free S3 gateway endpoint, so no NAT gateway is needed.
 
 ## System Flows
 
 ### Asset Upload & Processing
 
-1. User selects an image in the web app
-2. App asks API server for upload permission
-3. The API server creates a pending record in the RDS database and generates a secure, one-time pre-signed URL for uploading directly to a specific path in the S3 bucket `(originals/)`.
-4. The client's browser uploads the file's binary data directly to the S3 pre-signed URL.
-5. Upon successful upload, S3 automatically sends an ObjectCreated event notification to an SQS queue.
-6.  The SQS message triggers the Worker Lambda. The Lambda downloads the original image, reads the required presets from RDS, generates all image variants (e.g., thumbnail, medium, large), and uploads them to the derived/ path in S3.
-8.  Finally, the Worker Lambda updates the asset's status to `processed`
+1. User selects an image in the web app (type and size are checked in the browser).
+2. App calls `POST /api/v1/assets`. The API validates the request, generates an asset ID and returns a **presigned POST form** for `originals/{assetId}/original.{ext}`, then records a `pending` asset.
+3. The browser POSTs the file straight to S3. S3 itself rejects files over the size limit (`MAX_UPLOAD_BYTES`, default 10 MiB) or with a different content type than declared. The form is valid for 15 minutes and can be reused until then.
+4. S3 sends an ObjectCreated notification to SQS.
+5. The SQS message triggers the worker, which reads the presets from RDS, generates all variants, uploads them to `derived/`, and records them.
+6. The worker sets the asset to `processed` (or `failed`). The web app polls while recent assets are still pending or processing.
 
 ### Asset Delivery
 
-1. User opens a page that needs images
-2. App asks API server for image URLs
-3. API server gives back CloudFront URLs (like `https://cdn.example.com/derived/thumb/image.jpg`)
-4. Browser loads images from CloudFront
-5. CloudFront serves from cache if available, or gets from S3 if not
-
+1. User opens a page that needs images.
+2. App asks the API for assets; the response contains CloudFront URLs and a thumbnail URL per asset.
+3. Browser loads images from CloudFront, which serves from cache or fetches from S3.
 
 ## Technology Stack
 
-- **Frontend**: React
-- **Backend**: Node.js + Express
-- **Database**: PostgreSQL (AWS RDS)
+- **Frontend**: React 19, Vite, TanStack Query
+- **Backend**: Node.js 20 + Express 5
+- **Database**: PostgreSQL 17 (AWS RDS)
 - **Storage**: AWS S3
-- **Processing**: AWS Lambda + Sharp.js
+- **Processing**: AWS Lambda (Node.js 22) + sharp
 - **Queue**: AWS SQS
 - **CDN**: AWS CloudFront
-- **Network**: AWS VPC
+- **Infrastructure**: Terraform, AWS VPC
 - **Region**: ap-south-1 (Mumbai)
 
-## Setup Requirements
+## Local development (no AWS account needed for the API and database)
 
-- AWS Account with VPC configured
-- RDS PostgreSQL database
-- S3 bucket with event notifications
-- SQS queue
-- Lambda function with Sharp.js layer
-- CloudFront distribution with Origin Access Control
-- EC2 instance or container for API server
+```bash
+# 1. PostgreSQL with the schema
+docker run -d --name brandkit-pg -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=brandkitdb -p 5432:5432 postgres:17-alpine
+docker exec -i brandkit-pg psql -U postgres -d brandkitdb < server/schema.sql
 
-## Development Setup Guide
+# 2. API
+cd server
+cp .env.example .env     # set DB_USER=postgres, DB_PASSWORD=pw; any AWS_* values work unless you call POST /assets
+npm ci
+npm run dev
+```
+
+`POST /api/v1/assets` signs an S3 form, so it needs AWS credentials in the environment (any fake `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` is enough to sign; the upload itself needs a real bucket or an S3-compatible emulator).
+
+Checks that run without AWS:
+
+```bash
+(cd server && npm ci && npm run build)
+(cd lambdas/image-processor && npm ci && npm run build)
+(cd lambdas/cleanup && npm ci && npm run build)
+(cd web && npm ci && npm run build && npm run lint)
+(cd infrastructure/terraform && terraform init -backend=false && terraform fmt -check -recursive && terraform validate)
+
+# optional static security scan of the Terraform (needs Docker)
+docker run --rm -v "$PWD/infrastructure/terraform:/tf" bridgecrew/checkov -d /tf --framework terraform --compact --skip-path .terraform
+```
+
+## Deploying to AWS
 
 ### Prerequisites
 
-Before you begin, you will need the following installed on your machine:
+*   **AWS CLI** configured with credentials that can create the resources in the Terraform files.
+*   **Terraform** 1.5 or newer.
+*   **Node.js** 20 LTS (22 recommended for building the Lambda).
+*   **A Lambda layer for `sharp`** (Node.js 22, x86_64). Only `sharp` is needed: the worker bundles everything else (including `pg-promise` and the RDS CA bundle) into its own zip.
+    1.  Go to the **[sharp-aws-lambda-layer releases page](https://github.com/cbschuld/sharp-aws-lambda-layer/releases)** and download the latest ZIP for `nodejs22` and `x86_64`.
+    2.  In the AWS Console: **Lambda -> Layers -> Create layer**, upload the ZIP, choose the `nodejs22.x` runtime and `x86_64` architecture.
+    3.  Copy the **Layer Version ARN**; it goes in `terraform.tfvars`.
+*   (Optional) An SSH key pair. SSH is off by default; use AWS Systems Manager Session Manager instead.
 
-*   **AWS CLI**: Configured with credentials that have sufficient permissions to create the resources in the Terraform files. ([Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
-*   **Terraform**: Version 1.0 or newer. ([Installation Guide](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli))
-*   **Node.js**: 20 LTS.
-*   **An SSH Key Pair**: You need an active SSH key pair in your AWS account in the `ap-south-1` region. This will be used to access the EC2 instance. ([Guide to create a key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html))
-*   **A Lambda Layer for `sharp`**: The `sharp` library requires native binaries. You must create a Lambda Layer containing these binaries for the `nodejs22.x` runtime on an `x86_64` architecture.
-    1.  Go to the **[sharp-aws-lambda-layer releases page](https://github.com/cbschuld/sharp-aws-lambda-layer/releases)**.
-    2.  Download the latest ZIP file for `nodejs22` and `x86_64` (e.g., `sharp-layer-v0.33.3-node22-x64.zip`).
-    3.  In the AWS Console, navigate to **Lambda -> Layers -> Create layer**.
-    4.  Give it a name (e.g., `sharp-v0-33-3-node22-x64`), upload the ZIP file, select the `nodejs22.x` compatible runtime, and set the architecture to `x86_64`.
-    5.  Once created, copy the full **Layer Version ARN**. You will need this for the Terraform deployment.
+### 1. Build the worker
 
-### 1. Backend Infrastructure (Terraform)
+Terraform zips `lambdas/image-processor/dist`, so build it first:
 
-The Terraform scripts in the root directory provision all the necessary AWS resources.
+```bash
+cd lambdas/image-processor
+npm ci
+npm run build
+```
 
-**Setup Steps:**
+### 2. Publish the code the server boots from
 
-1.  **Navigate to the root directory** of the project.
+The EC2 instance clones this repository at first boot (`app_repo_url` at `app_git_ref`, default `main`). Push your changes to that ref first, or set `app_git_ref` to a branch, tag or commit SHA. Pinning a tag or SHA makes boots reproducible.
 
-2.  **Create a configuration file** for your secrets and environment-specific variables. Create a file named `terraform.tfvars`:
-    ```hcl
-    # terraform.tfvars
+### 3. Configure and apply Terraform
 
-    # Database credentials (choose a strong password)
-    db_username = "damadmin"
-    db_password = "YourSuperSecretPassword123!"
+```bash
+cd infrastructure/terraform
+cp terraform.tfvars.example terraform.tfvars   # edit: passwords, api_key, lambda_layer_arn, ...
+terraform init
+terraform plan
+terraform apply
+```
 
-    # --- AWS Prerequisites ---
-    # The name of the EC2 Key Pair you created in the AWS console
-    ec2_key_name = "your-ec2-key-pair-name"
+`terraform.tfvars` is git-ignored; never commit it. `terraform.tfvars.example` documents every input. Outputs include `api_base_url`, `cloudfront_domain_name`, `api_server_instance_id` and `rds_endpoint`.
 
-    # The full ARN of the sharp Lambda Layer you created
-    lambda_layer_arn = "arn:aws:lambda:ap-south-1:123456789012:layer:sharp-v0-33-3-node18-x64:1"
-    ```
+To tear down a throwaway environment, set `skip_final_snapshot = true`, apply, then `terraform destroy`.
 
-3.  **Initialize Terraform:**
-    ```bash
-    terraform init
-    ```
+### 4. Create the database schema
 
-4.  **Plan and Apply the infrastructure:**
-    ```bash
-    terraform plan -var-file="terraform.tfvars"
-    terraform apply -var-file="terraform.tfvars"
-    ```
-    Review the plan and type `yes` to deploy. This will take several minutes as it creates the VPC, RDS instance, EC2 server, and other resources.
+Open a shell on the API host with Session Manager (no SSH needed) and load the schema:
 
-5.  **Note the Outputs:** After the apply is complete, Terraform will print outputs. The `api_server_public_ip` is the IP address of your API server. The `rds_endpoint` is the address of your database.
+```bash
+aws ssm start-session --target <api_server_instance_id>
 
-### 2. Database Schema Migration
+# on the instance
+sudo dnf install -y postgresql17
+psql "host=<rds_endpoint host> port=5432 dbname=brandkitdb user=<db_username> sslmode=verify-full sslrootcert=/opt/brandkit/app/infrastructure/certs/rds-global-bundle.pem" \
+  -f /opt/brandkit/app/server/schema.sql
+```
 
-Once the RDS instance is running, you need to apply the initial database schema.
+Later schema changes are plain SQL files in `server/migrations/`; apply them with `psql -f` in order. Databases created from the current `schema.sql` already include them.
 
-1.  **Connect to the Database**: SSH into the EC2 instance and use `psql` from there.
-    ```bash
-    # Once inside the EC2 instance, install postgresql client and connect
-    sudo dnf install postgresql17 -y
-    psql -h <rds_endpoint> -p 5432 -U <username> -d <dbname>
-    ```
-2.  **Run the Schema SQL**: Copy the contents of the SQL schema (provided in the `server/schema.sql`) and execute it in your SQL client. This will create the `presets`, `assets`, and `variants` tables.
+### 5. Web app
 
-### 3. Frontend
+```bash
+cd web
+cp .env.example .env.local   # set VITE_API_BASE_URL to the api_base_url output
+npm ci
+npm run dev                  # http://localhost:5173
+```
 
-1.  **Navigate to the `frontend/` directory.**
-2.  **Set up environment variables.** Create a `.env.local` file. The frontend needs to know the URL of the API server.
-    ```
-    # .env.local in frontend/
-    VITE_API_BASE_URL=http://<api_server_public_ip>:8080/api/v1
-    ```
+`VITE_API_KEY` makes the browser send `X-Api-Key`. Anything in a `VITE_*` variable is shipped to every visitor, so use it only for an internal deployment ([ADR 0010](docs/adr/0010-shared-api-key-authentication.md)). The app is not hosted by Terraform yet; add its origin to `allowed_api_origins` and `allowed_upload_origins` when you host it.
 
-3.  **Install dependencies and run:**
-    ```bash
-    cd frontend
-    npm install
-    npm run dev
-    ```
-    The Vite application will be available at `http://localhost:5173`.
+### Alarms
+
+Terraform creates an SNS topic with CloudWatch alarms (messages in the dead-letter queue, upload backlog, worker errors, RDS CPU and storage, API host health). Set `alarm_email` and confirm the subscription email to receive them.

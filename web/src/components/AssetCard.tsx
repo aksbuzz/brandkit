@@ -1,10 +1,11 @@
 import { Image } from 'lucide-react';
-import type { Asset, AssetStatus } from '../types/asset';
+import type { AssetSummary } from '../types/asset';
+import { assetStatusColor } from '../utils/asset-status';
 import { cn } from '../utils/cn';
 import { formatFileSize } from '../utils/formatFileSize';
 
 interface AssetCardProps {
-  asset: Asset;
+  asset: AssetSummary;
   onClick: () => void;
   // onDelete?: (id: string) => Promise<void>;
 }
@@ -24,16 +25,20 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
   //   }
   // };
 
+  // Prefer the generated thumbnail; the original is only a sensible fallback once processing has finished
+  const imageUrl = asset.thumbnail_url ?? (asset.status === 'processed' ? asset.url : null);
+
   return (
     <div
       className="group relative bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
       onClick={onClick}
     >
       <div className="aspect-square bg-gray-100 flex items-center justify-center">
-        {asset.url ? (
+        {imageUrl ? (
           <img
-            src={asset.url}
+            src={imageUrl}
             alt={asset.original_filename}
+            loading="lazy"
             className="w-full h-full object-cover"
           />
         ) : (
@@ -57,7 +62,7 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
 
         <div className="text-xs text-gray-500 space-y-1">
           <div className="uppercase">{asset.content_type.split('/')[1]}</div>
-          {asset.size_bytes && <div>{formatFileSize(asset.size_bytes)}</div>}
+          {asset.size_bytes != null && <div>{formatFileSize(asset.size_bytes)}</div>}
         </div>
       </div>
 
@@ -72,10 +77,3 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
     </div>
   );
 }
-
-const assetStatusColor: Record<AssetStatus, string> = {
-  pending: 'bg-gray-100 text-gray-800',
-  processing: 'bg-yellow-100 text-yellow-800',
-  processed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-};

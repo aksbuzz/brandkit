@@ -22,8 +22,12 @@ export const ListPresets = ({ presets }: ListPresetsProps) => {
   }
 
   async function handleDelete(presetId: string) {
-    await deletePresetMutation.mutateAsync({ id: presetId });
-    toast.success('Preset deleted successfully');
+    try {
+      await deletePresetMutation.mutateAsync({ id: presetId });
+      toast.success('Preset deleted successfully');
+    } catch {
+      // the api client already showed the server's error message
+    }
   }
 
   return (

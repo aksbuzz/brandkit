@@ -12,14 +12,8 @@ type UseMutationConfig = {
 };
 
 export const useCreateAsset = ({ mutationConfig }: UseMutationConfig = {}) => {
-  const { onSuccess, ...restConfig } = mutationConfig || {};
-
   return useMutation({
-    onSuccess: (...args) => {
-      console.log('Successfully received signed URL for asset upload');
-      onSuccess?.(...args);
-    },
-    ...restConfig,
+    ...mutationConfig,
     mutationFn: createAsset,
   });
 };

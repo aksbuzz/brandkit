@@ -6,13 +6,13 @@ import {
   getAssetHandler,
   getAssetsHandler,
 } from './controller';
-import { createAssetSchema } from './schema';
+import { assetIdParamSchema, createAssetSchema, listAssetsSchema } from './schema';
 
 const router = Router();
 
 router.post('/', validate(createAssetSchema), createAssetHandler);
-router.get('/', getAssetsHandler);
-router.get('/:assetId', getAssetHandler);
-// router.delete('/:assetId', deleteAssetHandler);
+router.get('/', validate(listAssetsSchema), getAssetsHandler);
+router.get('/:assetId', validate(assetIdParamSchema), getAssetHandler);
+// router.delete('/:assetId', validate(assetIdParamSchema), deleteAssetHandler);
 
 export default router;

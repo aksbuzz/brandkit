@@ -10,6 +10,16 @@ const getEnv = (key: string): string => {
   return value;
 };
 
+const getInt = (key: string, fallback: number): number => {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const value = parseInt(raw, 10);
+  if (Number.isNaN(value)) {
+    throw new Error(`Environment variable ${key} must be an integer`);
+  }
+  return value;
+};
+
 export const config = {
   app: {
     port: parseInt(getEnv('PORT'), 10),
@@ -17,6 +27,12 @@ export const config = {
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173,http://localhost')
       .split(',')
       .map(o => o.trim()),
+    // Number of reverse proxies in front of the app (CloudFront = 1). Unset when the app is
+    // reachable directly, otherwise client IPs (and rate limiting) are taken from a spoofable header.
+    trustProxy: process.env.TRUST_PROXY ? getInt('TRUST_PROXY', 0) : undefined,
+  },
+  upload: {
+    maxBytes: getInt('MAX_UPLOAD_BYTES', 10 * 1024 * 1024),
   },
   db: {
     host: getEnv('DB_HOST'),
@@ -25,6 +41,9 @@ export const config = {
     password: getEnv('DB_PASSWORD'),
     database: getEnv('DB_DATABASE'),
     ssl: process.env.DB_SSL === 'true',
+    // PEM bundle used to verify the server certificate (the RDS global bundle is in infrastructure/certs)
+    sslCaPath: process.env.DB_SSL_CA_PATH,
+    poolMax: getInt('DB_POOL_MAX', 10),
   },
   aws: {
     region: getEnv('AWS_REGION'),

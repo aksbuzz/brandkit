@@ -2,7 +2,10 @@
   "name": "brandkit-worker-cleanup",
   "version": "1.0.0",
   "scripts": {
-    "build": "tsc"
+    "clean": "node -e \"require(\\\"fs\\\").rmSync(\\\"dist\\\",{recursive:true,force:true})\"",
+    "typecheck": "tsc --noEmit",
+    "bundle": "esbuild src/handler.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/handler.js --loader:.pem=text --external:pg-native \"--external:@aws-sdk/*\" --sourcemap",
+    "build": "npm run clean && npm run typecheck && npm run bundle"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.916.0",
@@ -11,6 +14,7 @@
   "devDependencies": {
     "@types/aws-lambda": "^8.10.156",
     "@types/node": "^24.9.1",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   }
 }

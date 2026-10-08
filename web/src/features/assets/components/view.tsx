@@ -3,7 +3,8 @@ import { Button } from '../../../components/ui/Button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/Dialog';
 import { Spinner } from '../../../components/ui/Spinner';
 import { useCopyToClipboard } from '../../../hooks';
-import type { Asset, AssetStatus, Variant } from '../../../types/asset';
+import type { Asset, Variant } from '../../../types/asset';
+import { assetStatusColor } from '../../../utils/asset-status';
 import { cn } from '../../../utils/cn';
 import { formatFileSize } from '../../../utils/formatFileSize';
 import { useAsset } from '../api/get-asset';
@@ -39,7 +40,7 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
             >
               {asset.status}
             </span>
-            <div>Size: {formatFileSize(asset.size_bytes)}</div>
+            <div>Size: {asset.size_bytes != null ? formatFileSize(asset.size_bytes) : 'Unknown'}</div>
             <div>Type: {asset.content_type}</div>
           </div>
 
@@ -122,11 +123,4 @@ export const ViewAssetDialog = ({ assetId, onClose }: ViewAssetDialogProps) => {
       </DialogContent>
     </Dialog>
   );
-};
-
-const assetStatusColor: Record<AssetStatus, string> = {
-  pending: 'bg-gray-100 text-gray-800',
-  processing: 'bg-yellow-100 text-yellow-800',
-  processed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
 };

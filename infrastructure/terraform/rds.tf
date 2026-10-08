@@ -20,6 +20,15 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
   publicly_accessible    = false
   multi_az               = false
-  skip_final_snapshot    = var.skip_final_snapshot
-  deletion_protection    = !var.skip_final_snapshot
+
+  storage_encrypted          = true
+  backup_retention_period    = var.db_backup_retention_days
+  copy_tags_to_snapshot      = true
+  auto_minor_version_upgrade = true
+
+  # With skip_final_snapshot = false AWS requires a snapshot name, otherwise destroy fails.
+  # Delete the old snapshot first if you destroy and recreate the stack more than once.
+  skip_final_snapshot       = var.skip_final_snapshot
+  final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.project_name}-db-final-snapshot"
+  deletion_protection       = !var.skip_final_snapshot
 }

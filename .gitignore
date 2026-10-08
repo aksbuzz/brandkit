@@ -9,7 +9,8 @@
 /infrastructure/terraform/override.tf.json
 /infrastructure/terraform/terraform.tfvars
 /infrastructure/terraform/terraform.tfvars.json
-/infrastructure/terraform/.terraform.lock.hcl
+/infrastructure/terraform/*.auto.tfvars
+# .terraform.lock.hcl is intentionally committed so provider versions are pinned
 
 /lambdas/**/.venv/
 /lambdas/**/venv/
